@@ -1,0 +1,267 @@
+<html>
+  <head>
+    <!--Load the AJAX API-->
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.0.18.min.js"></script>
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+    <script type="text/javascript" src="Metrics.js"></script>
+    <script type="text/javascript">
+
+      google.load("visualization", "1", {packages:["corechart"]});
+
+      var OCTOBER = 9;
+      var FIFTH = 5;
+      var SECOND = 2;
+
+      
+      //Test 1: Thursday 5:00pm
+      // var END_DATE = new Date(2014, OCTOBER, SECOND, 17, 00)
+
+      //Test 2: Thursday 9:00pm
+      // var END_DATE = new Date(2014, OCTOBER, SECOND, 21, 55)
+
+      // Test 3: Sunday 1:00am
+      // var END_DATE = new Date(2014, OCTOBER, FIFTH, 1, 0, 0);
+
+      // Test 4: Sunday 1:00pm
+      // var END_DATE = new Date(2014, OCTOBER, FIFTH, 13, 05);
+
+      // Test 5: Sunday 3:00pm
+      // var END_DATE = new Date(2014, OCTOBER, FIFTH, 15, 12);
+
+      // Test 6: Sunday 6:51pm
+      // var END_DATE = new Date(2014, OCTOBER, FIFTH, 20, 31);
+
+      // Test 7: Sunday 11:50 (ends)
+      // var END_DATE = new Date(2014, OCTOBER, 6, 0, 31);
+
+      // Test 8: Monday 10:30am (ends)
+      var END_DATE = new Date(2014, OCTOBER, 6, 13, 20);
+
+      var MINUTES = 100;
+
+      // var END_DATE = new Date();
+      var OFFSET = 100;
+
+      google.setOnLoadCallback(function(){
+
+        // Draw NetworkIn graph
+        //--------------------------
+        var NetworkIn = new Metrics('EC2', 'NetworkIn');
+        NetworkIn.setDimensions([{
+          Name: 'AutoScalingGroupName', /* required */
+          Value: 'MSBAutoscaleGroup' /* required */
+        }]);
+        NetworkIn.load(END_DATE, OFFSET, function(success){
+          var data = NetworkIn.getTableData([
+            'Timestamp', 
+            'Sum',
+            'Average'
+          ]);
+
+          var dataTable = google.visualization.arrayToDataTable(data);
+          var options = {
+            title: 'NetworkIn'
+          };
+
+          var chart = new google.visualization.LineChart(
+            document.getElementById('NetworkIn')
+          );
+          chart.draw(dataTable, options);
+
+          // Draw again with only average
+
+          var data2 = NetworkIn.getTableData([
+            'Timestamp',
+            'Average'
+          ]);
+          var dataTable2 = google.visualization.arrayToDataTable(data2);
+          var options2 = {
+            title: 'NetworkIn2'
+          };
+
+          var chart2 = new google.visualization.LineChart(
+            document.getElementById('NetworkIn2')
+          );
+          chart2.draw(dataTable2, options2);
+        });
+  
+
+        // Draw CPUUtilization graph
+        //--------------------------
+        var cpuUtilizationMetrics = new Metrics('EC2', 'CPUUtilization');
+        cpuUtilizationMetrics.setDimensions([{
+          Name: 'AutoScalingGroupName', /* required */
+          Value: 'MSBAutoscaleGroup' /* required */
+        }])
+        cpuUtilizationMetrics.load(END_DATE, OFFSET, function(success){
+          var data = cpuUtilizationMetrics.getTableData([
+            'Timestamp', 
+            'Average', 
+            'Maximum', 
+            'Minimum', 
+            'SampleCount'
+          ]);
+
+          var dataTable = google.visualization.arrayToDataTable(data);
+          var options = {
+            title: 'CPUUtilization'
+          };
+
+          var chart = new google.visualization.LineChart(
+            document.getElementById('CPUUsage_div')
+          );
+          chart.draw(dataTable, options);
+        });
+
+        // Draw CPUUtilization graph
+        //--------------------------
+        var DiskReadOps = new Metrics('EC2', 'DiskReadOps');
+        DiskReadOps.load(END_DATE, OFFSET, function(success){
+          var data = DiskReadOps.getTableData([
+            'Timestamp', 
+            'Average', 
+            'Sum',
+            'Maximum', 
+            'Minimum', 
+            'SampleCount'
+          ]);
+
+          var dataTable = google.visualization.arrayToDataTable(data);
+          var options = {
+            title: 'DiskReadOps'
+          };
+
+          var chart = new google.visualization.LineChart(
+            document.getElementById('DiskReadOps')
+          );
+          chart.draw(dataTable, options);
+        });
+
+
+        // Draw UHealthyHosts graph
+        //--------------------------
+        var UnHealthyHostCount = new Metrics('ELB', 'UnHealthyHostCount');
+        UnHealthyHostCount.load(END_DATE, OFFSET, function(success){
+          var data = UnHealthyHostCount.getTableData([
+            'Timestamp', 
+            'Average'
+          ]);
+
+          var dataTable = google.visualization.arrayToDataTable(data);
+          var options = {
+            title: 'UnHealthyHostCount'
+          };
+
+          var chart = new google.visualization.LineChart(
+            document.getElementById('UnHealthyHostCount')
+          );
+          chart.draw(dataTable, options);
+        });
+
+        // Draw HealthyHosts graph
+        //--------------------------
+        var HealthyHostCount = new Metrics('ELB', 'HealthyHostCount');
+        HealthyHostCount.load(END_DATE, OFFSET, function(success){
+          var data = HealthyHostCount.getTableData([
+            'Timestamp', 
+            'Average'
+          ]);
+
+          var raw_data = data.slice(1);
+          var hostsCount = 0;
+          for(minute in raw_data){
+            var average = raw_data[minute][1];
+            hostsCount += Math.round(average);
+          }
+          var instanceHours = ((hostsCount * 2) / 5)
+          console.log(instanceHours, 5.75 - instanceHours * .07);
+
+          var dataTable = google.visualization.arrayToDataTable(data);
+          var options = {
+            title: 'HealthyHosts'
+          };
+
+          var chart = new google.visualization.LineChart(
+            document.getElementById('HealthyHostCount')
+          );
+          chart.draw(dataTable, options);
+        });
+
+        // Draw BackendConnectionErrors graph
+        //--------------------------
+        
+          var log_rps = [['Timestamp', 'Rps']];
+          for(i in Metrics.Prod1){
+            var minute = new Date(END_DATE - 1 - (MINUTES + 1 - Metrics.Prod1[i].minutes) * 60000 );
+            var rps = Metrics.Prod1[i].rps;
+            log_rps.push([minute, rps]);
+          }
+          var rpsTable = google.visualization.arrayToDataTable(log_rps);
+          var options = {
+            title: 'RPSData'
+          };
+
+          var chart = new google.visualization.LineChart(
+            document.getElementById('RPS')
+          );
+          chart.draw(rpsTable, options);
+
+
+
+          var log_cents = [['Timestamp', 'Cents']];
+          for(i in Metrics.Prod1){
+            var minute = new Date(END_DATE - (MINUTES + 1 - Metrics.Prod1[i].minutes) * 60000 );
+            var cents = Metrics.Prod1[i].cents;
+            log_cents.push([minute, cents]);
+          }
+          var centsTable = google.visualization.arrayToDataTable(log_cents);
+          var options = {
+            title: 'CentsData'
+          };
+
+          var chart = new google.visualization.LineChart(
+            document.getElementById('Cents')
+          );
+          chart.draw(centsTable, options);
+
+
+
+
+          // Draw HTTPRequests graph
+        //--------------------------
+        var fieldName = 'NetworkOut';
+        var metric = new Metrics('EC2', fieldName);
+        metric.load(END_DATE, OFFSET, function(success){
+          var data = metric.getTableData([
+            'Timestamp', 
+            'Sum'
+          ]);
+
+          var dataTable = google.visualization.arrayToDataTable(data);
+          var options = {
+            title: fieldName
+          };
+
+          var chart = new google.visualization.LineChart(
+            document.getElementById(fieldName)
+          );
+          chart.draw(dataTable, options);
+        });
+
+        });
+
+    </script>
+  </head>
+  <body>
+    <div id="RPS" style="width: 100%; height: 100px;"></div>
+    <div id="Cents" style="width: 100%; height: 100px;"></div>
+    <div id="NetworkIn" style="width: 100%; height: 100px;"></div>
+    <div id="NetworkIn2" style="width: 100%; height: 100px;"></div>
+    <div id="CPUUsage_div" style="width: 100%; height: 100px;"></div>
+    <!-- <div id="NetworkOut" style="width: 100%; height: 100px;"></div> -->
+    <div id="UnHealthyHostCount" style="width: 100%; height: 100px;"></div>
+    <div id="HealthyHostCount" style="width: 100%; height: 100px;"></div>
+    <div id="DiskReadOps" style="width: 100%; height: 100px;"></div>
+    <div id="BackendConnectionErrors" style="width: 100%; height: 100px;"></div>
+  </body>
+</html>
